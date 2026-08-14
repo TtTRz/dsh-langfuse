@@ -1,6 +1,6 @@
 {
   "name": "dsh-langfuse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "dsh-langfuse: Langfuse LLM observability for DeepSeek Harness — one OpenTelemetry trace tree per agent session, with feedback scores and subagent lineage.",
   "type": "module",
   "main": "dist/index.js",

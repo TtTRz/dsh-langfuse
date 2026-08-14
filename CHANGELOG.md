@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-15
+
+### Changed
+
+- READMEs (EN/ZH) rewritten in the popular GitHub style: badges, quick-start-first layout, feature cards, and compact config/mapping tables.
+- Docs polish: one-sentence package description, no internal-host references, and the bundled NOTICE removed (the tarball no longer carries third-party attribution files).
+
 ## [0.1.0] - 2026-08-15
 
 ### Added
