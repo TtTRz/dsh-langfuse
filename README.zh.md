@@ -15,7 +15,7 @@ DeepSeek Harness 的 Langfuse 可观测插件：把每个 agent 会话导出为 
 dsh plugin --profile web add dsh-langfuse
 export LANGFUSE_PUBLIC_KEY=pk-lf-…
 export LANGFUSE_SECRET_KEY=sk-lf-…
-export LANGFUSE_HOST=http://langfuse.example.com   # 自建实例；默认 https://cloud.langfuse.com
+export LANGFUSE_HOST=https://langfuse.example.com   # 自建实例；默认 https://cloud.langfuse.com
 dsh web
 ```
 
@@ -29,7 +29,7 @@ dsh web
   config:
     mode: FULL                 # FULL | FEEDBACK_ONLY | DISABLED（默认）
     exporter:
-      url: http://langfuse.example.com/api/public/otel/v1/traces
+      url: https://langfuse.example.com/api/public/otel/v1/traces
     auth:
       publicKey: !!js process.env.LANGFUSE_PUBLIC_KEY
       secretKey: !!js process.env.LANGFUSE_SECRET_KEY
@@ -56,7 +56,7 @@ dsh web
 ## 验证情况
 
 - `npm run check`：biome + typecheck + 30 个单测/集成测试（seam 全链路 + 线上报文断言）+ 构建
-- **真冒烟已通过**：临时 profile 挂本包直连 self-hosted Langfuse v3.171.0，headless 跑一轮任务 → trace 落库（generation 含模型、usage、缓存 token、首 token 时间、输出），全程无需网关侧或 node_modules 补丁；TEXT score 推送同样实测通过
+- **真冒烟已通过**：临时 profile 挂本包直连自建 Langfuse（v3.171.0），headless 跑一轮任务 → trace 落库（generation 含模型、usage、缓存 token、首 token 时间、输出），全程无需网关侧或 node_modules 补丁；TEXT score 推送同样实测通过
 
 ## 已知限制
 

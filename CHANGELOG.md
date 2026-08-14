@@ -18,4 +18,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Subagent lineage: child session turn traces link to the parent session's latest turn trace (same-process).
 - Opt-in generation input export (`includeGenerationInput`): request-header system prompt/tools/model plus the turn's user prompt.
 - Three sharing modes (`FULL` / `FEEDBACK_ONLY` / `DISABLED`, default `DISABLED`), env-driven bundle patch (`LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_TELEMETRY_MODE`, `LANGFUSE_INCLUDE_GENERATION_INPUT`), and fail-loud config validation.
-- Unit and seam-integration test suite (30 tests) plus a real-deployment smoke against self-hosted Langfuse.
+- Unit and seam-integration test suite (30 tests) plus a real-deployment smoke against a self-hosted Langfuse (v3.171.0).

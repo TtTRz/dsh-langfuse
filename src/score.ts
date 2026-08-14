@@ -10,7 +10,7 @@
 import { postJson } from './transport.js'
 
 export interface PushScoreOptions {
-  /** Langfuse origin, e.g. `http://langfuse.example.com` (no trailing slash). */
+  /** Langfuse origin, e.g. `https://langfuse.example.com` (no trailing slash). */
   baseUrl: string
   /** Prebuilt `Authorization` header value. */
   authorization: string
