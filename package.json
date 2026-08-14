@@ -1,7 +1,7 @@
 {
   "name": "dsh-langfuse",
   "version": "0.1.0",
-  "description": "dsh-langfuse: Langfuse observability for DeepSeek Harness — exports session logs as OTel traces (GenAI semantic conventions) over a Content-Length HTTP transport, with feedback scores and subagent lineage links.",
+  "description": "dsh-langfuse: Langfuse LLM observability for DeepSeek Harness — one OpenTelemetry trace tree per agent session, with feedback scores and subagent lineage.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
