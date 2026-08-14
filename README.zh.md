@@ -2,7 +2,7 @@
 
 DeepSeek Harness 的 Langfuse 可观测插件：把每个 agent 会话导出为 OpenTelemetry trace 树（turn→trace、step→generation、tool→span，GenAI 语义约定 + `langfuse.*` 属性）发送到 Langfuse 的 OTLP 端点（`/api/public/otel/v1/traces`，只收 traces——这正是官方 OTLP-logs 后端喂不了 Langfuse 的原因）。
 
-自研包，基于官方遥测 seam（`@deepseek-ai/dsh-session-telemetry`），四个刻意设计：
+基于官方遥测 seam（`@deepseek-ai/dsh-session-telemetry`），四个刻意设计：
 
 1. **Content-Length 传输**：报文单次写入并显式携带 `Content-Length`，绝不发 `Transfer-Encoding: chunked`。部分 Langfuse 部署的前置网关会破坏 chunked 的 POST 体，导致 `400 Failed to parse OTel JSON Trace`（实测：chunked 100% 400、Content-Length 100% 200），而 OTel SDK 自带 exporter 永远发 chunked 且无开关。用本包则两端都不需要 node_modules 补丁。
 2. **反馈打分**：`feedback/record`（dsh 的 `/feedback` 命令）会上报为 Langfuse TEXT score，挂到该会话最近一轮 turn 的 trace 上（两种上传模式都生效）。
