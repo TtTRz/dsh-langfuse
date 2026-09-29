@@ -41,7 +41,6 @@ function foldHappyTurn(folder: SessionTimeline): void {
     ledger(3, 'user/message', { content: [{ type: 'text', text: 'hello' }] }, { time: 1020 }),
   )
   folder.fold(ledger(4, 'step/start', { turn: 1, step: 1 }, { time: 1030 }))
-  folder.fold(ledger(5, 'assistant/chunk', { turn: 1, step: 1, chunk: {} }, { time: 1040 }))
   folder.fold(
     ledger(
       6,
@@ -50,6 +49,7 @@ function foldHappyTurn(folder: SessionTimeline): void {
         turn: 1,
         step: 1,
         message: { role: 'assistant', content: [{ type: 'text', text: 'hi' }] },
+        stream: [{ type: 'text-chunks', index: 0, time0: 1040, dt: [0], texts: ['hi'] }],
         usage: { inputTokens: 10, outputTokens: 3, cacheReadTokens: 100, reasoningTokens: 2 },
       },
       { time: 1050 },
@@ -70,7 +70,13 @@ function foldHappyTurn(folder: SessionTimeline): void {
       {
         turn: 1,
         step: 1,
-        message: { content: [{ toolCallId: 'c1', content: 'out', isError: false }] },
+        message: {
+          role: 'tool',
+          source: { kind: 'tool' },
+          toolCallId: 'c1',
+          isError: false,
+          content: [{ type: 'text', text: 'out' }],
+        },
       },
       { time: 1070 },
     ),
@@ -114,7 +120,9 @@ describe('SessionTimeline', () => {
     expect(tool?.attributes[semconv.ATTR_GEN_AI_TOOL_NAME]).toBe('bash')
     expect(tool?.attributes[semconv.ATTR_GEN_AI_TOOL_CALL_ID]).toBe('c1')
     expect(tool?.attributes[semconv.ATTR_LANGFUSE_OBSERVATION_INPUT]).toBe('{"cmd":"ls"}')
-    expect(tool?.attributes[semconv.ATTR_LANGFUSE_OBSERVATION_OUTPUT]).toBe('out')
+    expect(tool?.attributes[semconv.ATTR_LANGFUSE_OBSERVATION_OUTPUT]).toBe(
+      JSON.stringify([{ type: 'text', text: 'out' }]),
+    )
   })
 
   it('marks error turn endings and failed tool results as ERROR status', () => {
@@ -136,7 +144,13 @@ describe('SessionTimeline', () => {
         {
           turn: 1,
           step: 1,
-          message: { content: [{ toolCallId: 'c1', content: 'boom', isError: true }] },
+          message: {
+            role: 'tool',
+            source: { kind: 'tool' },
+            toolCallId: 'c1',
+            isError: true,
+            content: [{ type: 'text', text: 'boom' }],
+          },
         },
         { time: 1030, severity: 'error' },
       ),
@@ -160,12 +174,34 @@ describe('SessionTimeline', () => {
     expect(String(turn?.attributes[semconv.ATTR_DSH_TURN_END_REASON])).toContain('error')
   })
 
-  it('keeps only the first assistant/chunk per step as completion_start_time', () => {
+  it('uses the first token time across settled attempts as completion_start_time', () => {
     const { folder, spans } = makeTimeline()
     folder.fold(ledger(1, 'turn/start', { turn: 1 }, { time: 1000 }))
     folder.fold(ledger(2, 'step/start', { turn: 1, step: 1 }, { time: 1010 }))
-    folder.fold(ledger(3, 'assistant/chunk', { turn: 1, step: 1, chunk: {} }, { time: 1020 }))
-    folder.fold(ledger(4, 'assistant/chunk', { turn: 1, step: 1, chunk: {} }, { time: 1030 }))
+    folder.fold(
+      ledger(
+        3,
+        'assistant/attempt',
+        {
+          turn: 1,
+          step: 1,
+          stream: [{ type: 'text-chunks', index: 0, time0: 1020, dt: [0, 5], texts: ['hi', '!'] }],
+        },
+        { time: 1028 },
+      ),
+    )
+    folder.fold(
+      ledger(
+        4,
+        'assistant/attempt',
+        {
+          turn: 1,
+          step: 1,
+          stream: [{ type: 'text-chunks', index: 0, time0: 1030, dt: [0, 5], texts: ['hi', '!'] }],
+        },
+        { time: 1038 },
+      ),
+    )
     folder.fold(ledger(5, 'step/end', { turn: 1, step: 1 }, { time: 1040 }))
     folder.fold(ledger(6, 'turn/end', { turn: 1, reason: { kind: 'completed' } }, { time: 1050 }))
     const step = spans().find((s) => s.name === 'step 1.1')
@@ -339,7 +375,13 @@ describe('SessionTimeline', () => {
         {
           turn: 1,
           step: 1,
-          message: { content: [{ toolCallId: 'c1', content: 'out', isError: false }] },
+          message: {
+            role: 'tool',
+            source: { kind: 'tool' },
+            toolCallId: 'c1',
+            isError: false,
+            content: [{ type: 'text', text: 'out' }],
+          },
         },
         { time: 1040 },
       ),

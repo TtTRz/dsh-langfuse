@@ -52,6 +52,12 @@ The bundled patch disables the base profile's `session-telemetry-otel` row (the 
     includeGenerationInput: false
 ```
 
+## Compatibility
+
+Version 0.2.0 requires **DeepSeek Harness 0.1.7-rc.2**. The session and telemetry SDKs are peer dependencies and must be provided by the same Harness installation. Install through `dsh plugin`; do not install an older telemetry SDK alongside a newer host.
+
+Upgrading from 0.1.x removes the pinned telemetry 0.1.0-rc.6 dependency that could break session creation or restoration with `session.events is not iterable`. Restart Harness after upgrading. Other Harness versions are not covered by the compatibility checks.
+
 ## ⚙️ Configuration
 
 | Field | Default | Meaning |
@@ -72,7 +78,7 @@ The bundled patch disables the base profile's `session-telemetry-otel` row (the 
 |---|---|
 | `turn/start` / `turn/end` | trace (`turn N`; error end reasons → ERROR status) |
 | `step/start` + `request/header` + `assistant/message` | **generation** (`step T.S`) — model, provider, output, `gen_ai.usage.*` tokens |
-| first `assistant/chunk` of a step | `langfuse.observation.completion_start_time` (TTFT) |
+| first token in the embedded assistant stream | `langfuse.observation.completion_start_time` (TTFT) |
 | `tool/call` + `tool/result` | tool span (arguments → input, result → output, `isError` → ERROR) |
 | `user/message` | trace input |
 | `feedback/record` | TEXT score on the session's latest turn trace |
@@ -93,9 +99,12 @@ Correlation attributes use this package's own vocabulary (`dsh.turn_idx`, `dsh.s
 
 ```sh
 npm run check   # biome + typecheck + vitest (unit & seam integration) + build
+npm run test:install -- /path/to/stock-dsh-install
 ```
 
-30 tests cover config validation, the folding timeline, the transport (`Content-Length`, no `Transfer-Encoding`, retry/backoff), score pushes, and a full seam integration that drives a real `SessionTelemetryCoordinator` and asserts the wire payload.
+The installation smoke test requires a separate stock `@deepseek-ai/dsh@0.1.7-rc.2` installation. It installs and reinstalls the packed plugin in a temporary profile, checks FULL-mode activation and session creation/reopening, and uses only a local mock collector. It does not send prompts or contact a real Langfuse project.
+
+Tests cover config validation, the folding timeline, the transport (`Content-Length`, no `Transfer-Encoding`, retry/backoff), score pushes, and a full seam integration that drives a real `SessionTelemetryCoordinator` and asserts the wire payload.
 
 ## ⚠️ Limitations
 

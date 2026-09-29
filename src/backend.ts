@@ -34,6 +34,20 @@ import {
 import { ExportPipeline } from './pipeline.js'
 import { pushFeedbackScore } from './score.js'
 
+/** Read a canonical feedback event without relying on the removed events getter. */
+function eventAt(session: Session | undefined, seq: number): SessionEvent | undefined {
+  const target = session as unknown as
+    | {
+        eventAt?: (seq: number) => SessionEvent | undefined
+        events?: readonly SessionEvent[]
+      }
+    | null
+    | undefined
+  if (target === null || target === undefined) return undefined
+  if (typeof target.eventAt === 'function') return target.eventAt(seq)
+  return target.events?.[seq]
+}
+
 const NOOP = (): void => {}
 
 /** Sharing vocabulary expected by the seam, keyed by runtime mode. */
@@ -62,7 +76,7 @@ class FeedbackRelay {
     this.ctx.on('session/event', (session, event) => {
       if (event.type !== 'feedback/record') return
       // Consent is the committed record, not an independently emitted bus value.
-      if (session.events[event.seq] !== event) {
+      if (eventAt(session, event.seq) !== event) {
         this.ctx.logger.warn('dsh-langfuse: feedback event is not in the canonical log; ignored')
         return
       }
@@ -78,12 +92,14 @@ class FeedbackRelay {
       this.ctx.logger.warn('dsh-langfuse: no turn trace to attach the feedback score to')
       return
     }
+    const text = event.data.text ?? event.data.category
+    if (text === undefined) return
     pushFeedbackScore({
       baseUrl: this.resolved.origin,
       authorization: this.resolved.authorization,
       traceId,
       name: this.resolved.feedbackScoreName,
-      text: event.data.text,
+      text,
     }).catch((error: unknown) => {
       this.ctx.logger.warn(`dsh-langfuse: score push failed: ${String(error)}`)
     })
@@ -119,11 +135,9 @@ export class DshLangfuseBackend extends SessionTelemetryBackend {
       emit: (record) => pipeline.timeline.fold(record),
       shutdown: () => this.shutdown(),
     }
-    const capture = new SessionTelemetryCoordinator(
-      ctx,
-      sink,
-      resolved.mode === 'full' ? 'live' : 'on-demand',
-    )
+    const capture = new SessionTelemetryCoordinator(ctx, sink, {
+      capture: resolved.mode === 'full' ? 'live' : 'on-demand',
+    })
     this.feed = resolved.mode === 'full' ? (record) => pipeline.timeline.fold(record) : NOOP
     new FeedbackRelay(ctx, resolved, pipeline, capture).install()
   }

@@ -51,6 +51,12 @@ dsh web   # 重启实例，聊一轮即可在 Langfuse 看到 trace
     includeGenerationInput: false
 ```
 
+## 兼容性
+
+0.2.0 要求 **DeepSeek Harness 0.1.7-rc.2**。会话及遥测 SDK 声明为 peer dependencies，必须由同一套 Harness 安装提供。使用 `dsh plugin` 安装，避免在新版宿主旁单独安装旧版遥测 SDK。
+
+从 0.1.x 升级后，将移除固定的遥测 0.1.0-rc.6 依赖，解决创建或恢复会话时的 `session.events is not iterable`。升级后需重启 Harness。其他 Harness 版本尚未纳入兼容性验证。
+
 ## ⚙️ 配置
 
 | 字段 | 默认 | 含义 |
@@ -71,7 +77,7 @@ dsh web   # 重启实例，聊一轮即可在 Langfuse 看到 trace
 |---|---|
 | `turn/start` / `turn/end` | trace（`turn N`；错误结束 → ERROR 状态） |
 | `step/start` + `request/header` + `assistant/message` | **generation**（`step T.S`）——模型/供应商/输出/`gen_ai.usage.*` |
-| 每步第一个 `assistant/chunk` | `langfuse.observation.completion_start_time`（TTFT） |
+| 内嵌 assistant stream 的首个 token | `langfuse.observation.completion_start_time`（TTFT） |
 | `tool/call` + `tool/result` | tool span（入参→input，结果→output，`isError`→ERROR） |
 | `user/message` | trace input |
 | `feedback/record` | TEXT score，挂在最近一轮 turn trace |
@@ -92,9 +98,12 @@ dsh web   # 重启实例，聊一轮即可在 Langfuse 看到 trace
 
 ```sh
 npm run check   # biome + typecheck + vitest（单测 & seam 集成）+ 构建
+npm run test:install -- /path/to/stock-dsh-install
 ```
 
-30 个测试覆盖配置校验、折叠时间线、传输（`Content-Length` 存在、无 `Transfer-Encoding`、重试/退避）、score 推送，以及驱动真实 `SessionTelemetryCoordinator` 的全链路 seam 集成。
+安装冒烟测试需要一套独立的官方 `@deepseek-ai/dsh@0.1.7-rc.2` 安装。脚本在临时 profile 中安装并重复安装发布包，验证 FULL 模式加载及会话创建、重新打开，仅使用本地模拟收集端，不发送提示词、不连接真实 Langfuse 项目。
+
+测试覆盖配置校验、折叠时间线、传输（`Content-Length` 存在、无 `Transfer-Encoding`、重试/退避）、score 推送，以及驱动真实 `SessionTelemetryCoordinator` 的全链路 seam 集成。
 
 ## ⚠️ 限制
 

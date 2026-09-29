@@ -5,14 +5,14 @@
  * Langfuse receives hierarchical observations.
  *
  * Design rules, taken from the seam contract itself
- * (`@deepseek-ai/dsh-session-telemetry`, 0.1.0-rc.6) and Langfuse's
+ * (`@deepseek-ai/dsh-session-telemetry`, 0.1.7-rc.2) and Langfuse's
  * documented OTLP property mapping:
  *
  * - records are authoritative about time: every span boundary uses the
  *   record's own timestamp, never the wall clock, so live capture and
  *   canonical-log replay build identical trees;
- * - the seam ships exactly one `assistant/chunk` per (turn, step) — the
- *   stream-start signal, whose time is the first-token time;
+ * - assistant settlement records embed the timed model stream; its first
+ *   token time is preserved during both live capture and replay;
  * - a turn without its `turn/end` is a crash window, not a semantic gap:
  *   the next `turn/start`, the session's shutdown record, or the backend's
  *   final sweep closes whatever is still open and flags it `dsh.forced_end`;
@@ -23,6 +23,7 @@
  * @module dsh-langfuse/timeline
  */
 
+import { assistantStreamFirstTokenTime } from '@deepseek-ai/dsh-llm'
 import type { SessionEventMap } from '@deepseek-ai/dsh-session'
 import type { SessionTelemetryRecord } from '@deepseek-ai/dsh-session-telemetry'
 import {
@@ -162,7 +163,7 @@ export class SessionTimeline {
       'user/message': this.rememberPrompt,
       'step/start': this.beginGeneration,
       'step/end': this.endGeneration,
-      'assistant/chunk': this.stampFirstChunk,
+      'assistant/attempt': this.stampFirstChunk,
       'assistant/message': this.recordGenerationResult,
       'tool/call': this.beginTool,
       'tool/result': this.endTool,
@@ -330,19 +331,22 @@ export class SessionTimeline {
   private readonly stampFirstChunk: EventHandler = (journal, record) => {
     const open = journal.turn
     if (open === undefined) return
-    const { step } = payload<'assistant/chunk'>(record)
+    const { step, stream } = payload<'assistant/attempt'>(record)
+    const firstTokenAt = assistantStreamFirstTokenTime(stream ?? [])
+    if (firstTokenAt === undefined) return
     const generation = open.generations.get(step)
     if (generation === undefined || generation.firstChunkAt !== undefined) return
-    generation.firstChunkAt = record.time
+    generation.firstChunkAt = firstTokenAt
     generation.span.setAttribute(
       ATTR_LANGFUSE_COMPLETION_START_TIME,
-      new Date(record.time).toISOString(),
+      new Date(firstTokenAt).toISOString(),
     )
   }
 
   private readonly recordGenerationResult: EventHandler = (journal, record) => {
     const open = journal.turn
     if (open === undefined) return
+    this.stampFirstChunk(journal, record)
     const { step, message, usage } = payload<'assistant/message'>(record)
     const generation = open.generations.get(step)
     if (generation === undefined) return
@@ -389,12 +393,10 @@ export class SessionTimeline {
     const open = journal.turn
     if (open === undefined) return
     const { message } = payload<'tool/result'>(record)
-    const first = message.content[0]
-    if (first === undefined) return
-    const key = String(first.toolCallId)
+    const key = String(message.toolCallId)
     const span = open.tools.get(key)
     if (span === undefined) return
-    span.setAttribute(ATTR_LANGFUSE_OBSERVATION_OUTPUT, this.serialize(structured(first.content)))
+    span.setAttribute(ATTR_LANGFUSE_OBSERVATION_OUTPUT, this.serialize(message.content))
     if (record.severity === 'error') span.setStatus({ code: SpanStatusCode.ERROR })
     span.end(record.time)
     open.tools.delete(key)

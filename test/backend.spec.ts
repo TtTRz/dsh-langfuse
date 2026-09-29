@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http'
 import { Context } from '@deepseek-ai/cordis'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import { Session, type SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DshLangfuseBackend, DshLangfuseMode } from '../src/index.js'
 import { fakeSession, type SessionEventLike, sessionEvent } from './record.js'
@@ -150,8 +150,11 @@ describe('DshLangfuseBackend with the real telemetry seam', () => {
     ]
     const session = fakeSession('session-1', events)
     // no live capture happens without feedback
-    emitSessionEvent(ctx, session, events[0] as SessionEventLike)
-    await vi.waitFor(() => expect(traces()).toHaveLength(0), { timeout: 500 })
+    ctx.emit('session/created', session as unknown as Session)
+    for (const event of events.slice(0, 5)) emitSessionEvent(ctx, session, event)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(traces()).toHaveLength(0)
+    expect(scores()).toHaveLength(0)
     // the canonical feedback event triggers replay through its seq
     emitSessionEvent(ctx, session, events[5] as SessionEventLike)
     await vi.waitFor(() => expect(traces()).toHaveLength(1), { timeout: 2000 })
@@ -159,6 +162,45 @@ describe('DshLangfuseBackend with the real telemetry seam', () => {
     expect(payload).toContain('turn 1')
     expect(payload).toContain('hi')
     await vi.waitFor(() => expect(scores()).toHaveLength(1), { timeout: 2000 })
+    await backend.shutdown()
+  })
+
+  it.each([
+    { feedback: { category: 'task-result' }, score: 'task-result' },
+    { feedback: {}, score: undefined },
+  ])('accepts feedback without text: $feedback', async ({ feedback, score }) => {
+    const port = await startMock()
+    const ctx = makeCtx()
+    const backend = new DshLangfuseBackend(
+      ctx,
+      uploadConfig(port, { mode: DshLangfuseMode.FEEDBACK_ONLY }),
+    )
+    const events = [
+      sessionEvent('turn/start', 0, { turn: 1 }, 1000),
+      sessionEvent('turn/end', 1, { turn: 1, reason: { kind: 'completed' } }, 1010),
+      sessionEvent('feedback/record', 2, feedback, 1020),
+    ]
+    const session = fakeSession('feedback-session', events)
+    emitSessionEvent(ctx, session, events[2] as SessionEventLike)
+    await vi.waitFor(() => expect(traces()).toHaveLength(1))
+    if (score === undefined) {
+      expect(scores()).toHaveLength(0)
+    } else {
+      await vi.waitFor(() => expect(scores()).toHaveLength(1))
+      expect(JSON.parse(scores()[0]?.body.toString() ?? '{}').value).toBe(score)
+    }
+    await backend.shutdown()
+  })
+
+  it('adopts new and restored rc.2 sessions without the removed events getter', async () => {
+    const port = await startMock()
+    const ctx = makeCtx()
+    const backend = new DshLangfuseBackend(ctx, uploadConfig(port))
+    const original = Session.create(SessionId('created-session'))
+    expect('events' in original).toBe(false)
+    expect(() => ctx.emit('session/created', original)).not.toThrow()
+    const restored = Session.create(SessionId('restored-session'), original.snapshotEvents())
+    expect(() => ctx.emit('session/created', restored)).not.toThrow()
     await backend.shutdown()
   })
 

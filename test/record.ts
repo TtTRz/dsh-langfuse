@@ -53,12 +53,17 @@ export function fakeSession(
 ): {
   id: string
   header: Record<string, never>
-  events: SessionEventLike[]
-  firstLiveSeq: number
+  eventAt: (seq: number) => SessionEventLike | undefined
+  snapshotEvents: (from?: number) => readonly SessionEventLike[]
+  firstLifecycleSeq: number
 } {
-  // firstLiveSeq 0: canonical-log replay hands over events with seq > -1, so
-  // a dense array indexed by seq replays every entry (seq 0 included).
-  return { id, header: {}, events, firstLiveSeq: 0 }
+  return {
+    id,
+    header: {},
+    eventAt: (seq) => events[seq],
+    snapshotEvents: (from = 0) => events.slice(from),
+    firstLifecycleSeq: 0,
+  }
 }
 
 export interface SessionEventLike {

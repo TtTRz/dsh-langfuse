@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-29
+
+### Changed
+
+- Require DeepSeek Harness 0.1.7-rc.2. Session and telemetry SDKs are exact peer dependencies supplied by the host; the plugin no longer installs telemetry 0.1.0-rc.6 as a private runtime dependency.
+
+### Fixed
+
+- Prevent plugin installation from bringing back an incompatible telemetry SDK that throws `session.events is not iterable` while creating or restoring sessions.
+- Use the rc.2 capture-options object so `FEEDBACK_ONLY` remains dormant until canonical feedback is recorded.
+- Read canonical feedback through the session accessor instead of the removed `events` getter; support category-only and text-free feedback.
+- Adapt tool-result messages and first-token timing to the rc.2 message and embedded-stream contracts.
+
+### Added
+
+- Real rc.2 session regression tests and a fresh-profile installation smoke test, including reinstall, session creation, and reopening.
+- GitHub Actions checks for formatting, types, unit tests, build, and packed-plugin installation.
+
+
 ## [0.1.1] - 2026-08-15
 
 ### Changed
